@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KineMaster Web Edition - Ahmad Tech</title>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <style>
+        :root { --primary: #ff0050; --dark: #0f0f0f; --accent: #00f2ea; }
+        body { font-family: 'Arial', sans-serif; background: var(--dark); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* منطقة المعاينة */
+        .preview-area { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; }
+        video { max-width: 100%; max-height: 100%; border: 1px solid #333; }
+
+        /* شريط الأدوات السفلي */
+        .editor-shell { background: #1a1a1a; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+        .tabs { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 5px; }
+        .tab-btn { background: #333; border: none; color: white; padding: 10px 20px; border-radius: 20px; white-space: nowrap; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+
+        .control-group { display: none; background: #252525; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+        .control-group.active { display: block; }
+
+        .action-bar { display: flex; gap: 10px; }
+        .btn-main { flex: 1; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-upload { background: var(--accent); color: #000; }
+        .btn-render { background: var(--primary); color: white; }
+        
+        #status { font-size: 12px; text-align: center; color: var(--accent); margin-top: 5px; }
+        input[type="number"], select { background: #444; color: white; border: 1px solid #555; padding: 8px; border-radius: 5px; width: 100%; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="preview-area">
+        <video id="videoPlayer" controls></video>
+        <p id="msg" style="position:absolute;">اضغط "رفع" للبدء</p>
+    </div>
+
+    <div class="editor-shell">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'trim-tab')">✂️ قص</button>
+            <button class="tab-btn" onclick="switchTab(event, 'filter-tab')">🎨 فلاتر</button>
+            <button class="tab-btn" onclick="switchTab(event, 'audio-tab')">🔇 الصوت</button>
+        </div>
+
+        <div id="trim-tab" class="control-group active">
+            <label>البداية (ثواني):</label>
+            <input type="number" id="startTime" value="0">
+            <label>المدة المطلوبة (ثواني):</label>
+            <input type="number" id="duration" value="5">
+        </div>
+
+        <div id="filter-tab" class="control-group">
+            <label>اختر تأثير بصري:</label>
+            <select id="videoFilter">
+                <option value="none">طبيعي</option>
+                <option value="grayscale">أبيض وأسود</option>
+                <option value="sepia">عتيق (Sepia)</option>
+                <option value="negate">معكوس (Negative)</option>
+            </select>
+        </div>
+
+        <div id="audio-tab" class="control-group">
+            <p>إعدادات الصوت:</p>
+            <label><input type="checkbox" id="muteAudio"> كتم صوت الفيديو تماماً</label>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn-main btn-upload" onclick="document.getElementById('videoFile').click()">📤 رفع فيديو</button>
+            <button class="btn-main btn-render" id="renderBtn">🎬 تصدير (حفظ)</button>
+        </div>
+        <input type="file" id="videoFile" hidden accept="video/*">
+        <div id="status">جاهز للعمل..</div>
+    </div>
+
+<script>
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+    let currentFile;
+
+    // تبديل الأقسام
+    function switchTab(evt, tabId) {
+        document.querySelectorAll('.control-group').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+
+    // معالجة رفع الفيديو
+    document.getElementById('videoFile').onchange = (e) => {
+        currentFile = e.target.files[0];
+        if (currentFile) {
+            document.getElementById('videoPlayer').src = URL.createObjectURL(currentFile);
+            document.getElementById('msg').style.display = 'none';
+            document.getElementById('status').innerText = "تم تحميل الفيديو بنجاح";
+        }
+    };
+
+    // عملية التصنيع (Rendering)
+    document.getElementById('renderBtn').onclick = async () => {
+        if (!currentFile) return alert("يرجى اختيار فيديو أولاً!");
+
+        const status = document.getElementById('status');
+        const btn = document.getElementById('renderBtn');
+        
+        status.innerText = "جاري تحميل المحرك (لأول مرة)...";
+        btn.disabled = true;
+
+        if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+        status.innerText = "جاري معالجة الفيديو... قد يستغرق هذا دقيقة";
+        
+        // رفع الملف للذاكرة الوهمية
+        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(currentFile));
+
+        // تجميع الأوامر
+        let args = ['-i', 'input.mp4'];
+
+        // 1. أداة القص
+        const start = document.getElementById('startTime').value;
+        const dur = document.getElementById('duration').value;
+        args.push('-ss', start, '-t', dur);
+
+        // 2. الفلاتر
+        const filter = document.getElementById('videoFilter').value;
+        if (filter !== 'none') {
+            args.push('-vf', filter === 'grayscale' ? 'hue=s=0' : (filter === 'sepia' ? 'sepia' : 'negate'));
+        }
+
+        // 3. كتم الصوت
+        if (document.getElementById('muteAudio').checked) {
+            args.push('-an');
+        }
+
+        args.push('output.mp4');
+
+        // تنفيذ الأمر النهائي
+        await ffmpeg.run(...args);
+
+        // قراءة النتيجة وتحميلها
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Ahmad_Edit_Video.mp4';
+        a.click();
+
+        status.innerText = "تم التصدير بنجاح! تفقد التنزيلات.";
+        btn.disabled = false;
+    };
+</script>
+
+</body>
+</html>
