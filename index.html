@@ -2,156 +2,121 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KineMaster Web Edition - Ahmad Tech</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>محاكي كيني ماستر - أحمد كظيم</title>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #ff0050; --dark: #0f0f0f; --accent: #00f2ea; }
-        body { font-family: 'Arial', sans-serif; background: var(--dark); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { font-family: 'Cairo', sans-serif; background: #0c0c0c; color: white; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        /* منطقة المعاينة */
-        .preview-area { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; }
-        video { max-width: 100%; max-height: 100%; border: 1px solid #333; }
+        /* منطقة المعاينة وعجلة الوسائط */
+        .preview-pane { position: relative; height: 60vh; background: #000; border-bottom: 2px solid #333; display: flex; align-items: center; justify-content: center; }
+        video { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-        /* شريط الأدوات السفلي */
-        .editor-shell { background: #1a1a1a; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
-        .tabs { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 5px; }
-        .tab-btn { background: #333; border: none; color: white; padding: 10px 20px; border-radius: 20px; white-space: nowrap; cursor: pointer; transition: 0.3s; }
-        .tab-btn.active { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
-
-        .control-group { display: none; background: #252525; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
-        .control-group.active { display: block; }
-
-        .action-bar { display: flex; gap: 10px; }
-        .btn-main { flex: 1; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .btn-upload { background: var(--accent); color: #000; }
-        .btn-render { background: var(--primary); color: white; }
+        /* عجلة الوسائط (محاكاة دائرية) */
+        .media-wheel { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 140px; height: 140px; background: rgba(30,30,30,0.8); border-radius: 50%; border: 4px solid #555; box-shadow: 0 0 15px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+        .wheel-btn { position: absolute; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #ccc; transition: 0.2s; }
+        .wheel-btn:active { transform: scale(1.1); color: #fff; }
         
-        #status { font-size: 12px; text-align: center; color: var(--accent); margin-top: 5px; }
-        input[type="number"], select { background: #444; color: white; border: 1px solid #555; padding: 8px; border-radius: 5px; width: 100%; margin-top: 5px; }
+        /* توزيع الأزرار حول الدائرة */
+        .btn-media { top: 10px; left: 50%; transform: translateX(-50%); background: #222; } /* الوسائط */
+        .btn-layer { top: 50%; left: 10px; transform: translateY(-50%); background: #222; } /* طبقة */
+        .btn-audio { top: 50%; right: 10px; transform: translateY(-50%); background: #222; } /* صوت */
+        .btn-rec   { bottom: 10px; left: 50%; transform: translateX(-50%); background: #222; } /* سجل */
+        .btn-play  { position: relative; width: 50px; height: 50px; background: #cc0000; color: white; font-size: 20px; z-index: 10; } /* تشغيل (الوسط) */
+
+        /* الجدول الزمني (محاكاة الطبقات) */
+        .timeline-area { height: 40vh; background: #1a1a1a; padding: 10px; overflow-y: auto; }
+        .tl-track { background: #222; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; padding: 5px; position: relative; }
+        .tl-label { font-size: 11px; color: #888; width: 50px; text-align: left; margin-left: 10px; }
+        .tl-bar { flex: 1; height: 25px; border-radius: 5px; display: flex; align-items: center; padding-right: 8px; font-size: 11px; font-weight: bold; }
+        
+        /* ألوان الطبقات مثل صورك */
+        .tl-video { background: #0088cc; color: #fff; } /* لون الفيديو */
+        .tl-text  { background: #cc8800; color: #fff; margin-right: 50px; width: 60%; } /* لون النص */
+        .tl-audio { background: #00cc88; color: #fff; width: 80%; } /* لون الصوت */
+
+        /* أدوات التحكم الإضافية */
+        .action-bar { position: absolute; bottom: 10px; left: 10px; z-index: 20; display: flex; gap: 10px; }
+        .action-btn { background: rgba(0,0,0,0.6); border: 1px solid #444; color: #aaa; padding: 8px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; }
+        .btn-export { background: #cc0000; color: white; border: none; font-weight: bold; }
+
+        input[type="file"] { display: none; }
+        #status { font-size: 11px; color: #00ffcc; text-align: center; margin-top: 5px; }
+
     </style>
 </head>
 <body>
 
-    <div class="preview-area">
-        <video id="videoPlayer" controls></video>
-        <p id="msg" style="position:absolute;">اضغط "رفع" للبدء</p>
-    </div>
-
-    <div class="editor-shell">
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab(event, 'trim-tab')">✂️ قص</button>
-            <button class="tab-btn" onclick="switchTab(event, 'filter-tab')">🎨 فلاتر</button>
-            <button class="tab-btn" onclick="switchTab(event, 'audio-tab')">🔇 الصوت</button>
-        </div>
-
-        <div id="trim-tab" class="control-group active">
-            <label>البداية (ثواني):</label>
-            <input type="number" id="startTime" value="0">
-            <label>المدة المطلوبة (ثواني):</label>
-            <input type="number" id="duration" value="5">
-        </div>
-
-        <div id="filter-tab" class="control-group">
-            <label>اختر تأثير بصري:</label>
-            <select id="videoFilter">
-                <option value="none">طبيعي</option>
-                <option value="grayscale">أبيض وأسود</option>
-                <option value="sepia">عتيق (Sepia)</option>
-                <option value="negate">معكوس (Negative)</option>
-            </select>
-        </div>
-
-        <div id="audio-tab" class="control-group">
-            <p>إعدادات الصوت:</p>
-            <label><input type="checkbox" id="muteAudio"> كتم صوت الفيديو تماماً</label>
+    <div class="preview-pane">
+        <video id="player" controls poster="https://via.placeholder.com/400x225/0c0c0c/555?text=Ahmad+Master"></video>
+        
+        <div class="media-wheel">
+            <button class="wheel-btn btn-media" onclick="document.getElementById('file-in').click()">📁</button>
+            <button class="wheel-btn btn-layer" onclick="alert('الطبقات قريباً')">📄</button>
+            <button class="wheel-btn btn-audio" onclick="alert('استخراج الصوت')">🎵</button>
+            <button class="wheel-btn btn-rec" onclick="alert('تسجيل صوتي')">🎙️</button>
+            <button class="wheel-btn btn-play">▶️</button>
         </div>
 
         <div class="action-bar">
-            <button class="btn-main btn-upload" onclick="document.getElementById('videoFile').click()">📤 رفع فيديو</button>
-            <button class="btn-main btn-render" id="renderBtn">🎬 تصدير (حفظ)</button>
+            <button class="action-btn" onclick="alert('الإعدادات')">⚙️</button>
+            <button class="action-btn btn-export" id="render-btn">💾 تصدير</button>
         </div>
-        <input type="file" id="videoFile" hidden accept="video/*">
-        <div id="status">جاهز للعمل..</div>
     </div>
 
-<script>
-    const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
-    let currentFile;
+    <div class="timeline-area">
+        <div class="tl-track">
+            <span class="tl-label">الفيديو</span>
+            <div class="tl-bar tl-video">🎬 Ahmad_Video_01.mp4</div>
+        </div>
 
-    // تبديل الأقسام
-    function switchTab(evt, tabId) {
-        document.querySelectorAll('.control-group').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        evt.currentTarget.classList.add('active');
-    }
+        <div class="tl-track">
+            <span class="tl-label">نص</span>
+            <div class="tl-bar tl-text">T شكراً للمتابعة</div>
+        </div>
 
-    // معالجة رفع الفيديو
-    document.getElementById('videoFile').onchange = (e) => {
-        currentFile = e.target.files[0];
-        if (currentFile) {
-            document.getElementById('videoPlayer').src = URL.createObjectURL(currentFile);
-            document.getElementById('msg').style.display = 'none';
-            document.getElementById('status').innerText = "تم تحميل الفيديو بنجاح";
-        }
-    };
+        <div class="tl-track">
+            <span class="tl-label">صوت</span>
+            <div class="tl-bar tl-audio">🎵 Music_Track.mp3</div>
+        </div>
 
-    // عملية التصنيع (Rendering)
-    document.getElementById('renderBtn').onclick = async () => {
-        if (!currentFile) return alert("يرجى اختيار فيديو أولاً!");
+        <input type="file" id="file-in" accept="video/*">
+        <div id="status">جاهز للإبداع.. ارفع فيديو من زر 📁</div>
+    </div>
 
-        const status = document.getElementById('status');
-        const btn = document.getElementById('renderBtn');
-        
-        status.innerText = "جاري تحميل المحرك (لأول مرة)...";
-        btn.disabled = true;
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: false });
+        let rawVideo;
 
-        if (!ffmpeg.isLoaded()) await ffmpeg.load();
+        document.getElementById('file-in').onchange = (e) => {
+            rawVideo = e.target.files[0];
+            if(rawVideo) {
+                document.getElementById('player').src = URL.createObjectURL(rawVideo);
+                document.getElementById('status').innerText = "تم الرفع. اضغط 💾 للحفظ (قص 10 ثواني تلقائياً)";
+            }
+        };
 
-        status.innerText = "جاري معالجة الفيديو... قد يستغرق هذا دقيقة";
-        
-        // رفع الملف للذاكرة الوهمية
-        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(currentFile));
+        document.getElementById('render-btn').onclick = async () => {
+            if(!rawVideo) return alert("📁 ارفع فيديو من العجلة الدائرية أولاً!");
+            const s = document.getElementById('status');
+            s.innerText = "جاري الحفظ.. انتظر قليلاً ⏳";
+            
+            if(!ffmpeg.isLoaded()) await ffmpeg.load();
+            ffmpeg.FS('writeFile', 'i.mp4', await fetchFile(rawVideo));
 
-        // تجميع الأوامر
-        let args = ['-i', 'input.mp4'];
+            // أمر تلقائي (قص أول 10 ثواني)
+            await ffmpeg.run('-i', 'i.mp4', '-t', '10', 'o.mp4');
 
-        // 1. أداة القص
-        const start = document.getElementById('startTime').value;
-        const dur = document.getElementById('duration').value;
-        args.push('-ss', start, '-t', dur);
-
-        // 2. الفلاتر
-        const filter = document.getElementById('videoFilter').value;
-        if (filter !== 'none') {
-            args.push('-vf', filter === 'grayscale' ? 'hue=s=0' : (filter === 'sepia' ? 'sepia' : 'negate'));
-        }
-
-        // 3. كتم الصوت
-        if (document.getElementById('muteAudio').checked) {
-            args.push('-an');
-        }
-
-        args.push('output.mp4');
-
-        // تنفيذ الأمر النهائي
-        await ffmpeg.run(...args);
-
-        // قراءة النتيجة وتحميلها
-        const data = ffmpeg.FS('readFile', 'output.mp4');
-        const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Ahmad_Edit_Video.mp4';
-        a.click();
-
-        status.innerText = "تم التصدير بنجاح! تفقد التنزيلات.";
-        btn.disabled = false;
-    };
-</script>
-
+            const data = ffmpeg.FS('readFile', 'o.mp4');
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob([data.buffer], {type: 'video/mp4'}));
+            link.download = "KineMaster_Web_Edit.mp4";
+            link.click();
+            s.innerText = "تم حفظ الفيديو المعدل في التنزيلات! ✅";
+        };
+    </script>
 </body>
-</html>
+    </html>
+    
