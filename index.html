@@ -2,117 +2,94 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
-    <title>KineMaster Web Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KineMaster Pro - أحمد كظيم</title>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --km-red: #e91e63; --km-dark: #111; --km-panel: #181818; }
-        body { margin: 0; padding: 0; background: var(--km-dark); color: white; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; }
+        body { margin: 0; padding: 0; background: var(--km-dark); color: white; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-        /* الشاشة الرئيسية مقسمة لثلاثة أجزاء */
-        .left-bar { width: 60px; background: #000; display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 20px; border-left: 1px solid #333; }
-        .main-editor { flex: 1; display: flex; flex-direction: column; position: relative; }
-        .right-controls { width: 180px; background: var(--km-panel); display: flex; align-items: center; justify-content: center; position: relative; }
+        /* التصميم العرضي */
+        .editor-main { flex: 1; display: flex; position: relative; overflow: hidden; }
+        .left-bar { width: 50px; background: #000; display: flex; flex-direction: column; align-items: center; padding-top: 15px; gap: 20px; border-left: 1px solid #333; }
+        .preview-area { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
+        .right-control { width: 180px; background: var(--km-panel); display: flex; align-items: center; justify-content: center; }
 
-        /* منطقة المعاينة */
-        .preview-screen { flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; }
-        video { max-height: 90%; max-width: 95%; border: 1px solid #222; }
+        /* فيديو ومعاينة */
+        video { max-height: 100%; max-width: 100%; }
+        #text-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 5px #000; display: none; }
 
-        /* عجلة الوسائط الاحترافية */
-        .km-wheel { width: 150px; height: 150px; background: #222; border-radius: 50%; position: relative; border: 4px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .wheel-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 55px; height: 55px; background: var(--km-red); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 5; cursor: pointer; }
-        .w-item { position: absolute; color: #aaa; cursor: pointer; font-size: 14px; text-align: center; width: 40px; }
-        .w-top { top: 10px; left: 50%; transform: translateX(-50%); }
-        .w-right { top: 50%; right: 10px; transform: translateY(-50%); }
-        .w-bottom { bottom: 10px; left: 50%; transform: translateX(-50%); }
-        .w-left { top: 50%; left: 10px; transform: translateY(-50%); }
+        /* عجلة الوسائط */
+        .km-wheel { width: 140px; height: 140px; background: #222; border-radius: 50%; position: relative; border: 3px solid #444; }
+        .wheel-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 50px; height: 50px; background: var(--km-red); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
+        .w-item { position: absolute; color: #ccc; cursor: pointer; font-size: 11px; text-align: center; width: 45px; }
+        .w-top { top: 8px; left: 50%; transform: translateX(-50%); }
+        .w-right { top: 50%; right: 5px; transform: translateY(-50%); }
+        .w-bottom { bottom: 8px; left: 50%; transform: translateX(-50%); }
+        .w-left { top: 50%; left: 5px; transform: translateY(-50%); }
 
-        /* الجدول الزمني السفلي */
-        .timeline { height: 120px; background: #121212; border-top: 2px solid #333; position: relative; overflow: hidden; }
-        .time-marker { position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: red; z-index: 10; }
-        .layer { height: 30px; margin: 5px 10px; background: #1e3a5f; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 10px; border: 1px solid #2c5282; }
+        /* نافذة الضبط المنبثقة */
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; padding: 20px; border-radius: 10px; border: 1px solid var(--km-red); z-index: 100; width: 250px; }
+        .modal h3 { margin-top: 0; color: var(--km-red); font-size: 16px; }
+        .modal button { background: var(--km-red); color: white; border: none; padding: 8px; width: 100%; border-radius: 5px; margin-top: 10px; }
 
-        /* أزرار جانبية */
-        .icon-btn { color: #888; font-size: 20px; cursor: pointer; transition: 0.3s; }
+        /* التايم لاين */
+        .timeline { height: 100px; background: #121212; border-top: 2px solid #333; padding: 5px; display: flex; flex-direction: column; gap: 5px; }
+        .track { height: 25px; background: #2c5282; border-radius: 3px; font-size: 10px; display: flex; align-items: center; padding: 0 10px; }
+
+        .icon-btn { color: #888; font-size: 18px; cursor: pointer; }
         .icon-btn:hover { color: white; }
-        .export-btn { color: var(--km-red); }
-
-        #status-txt { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #555; }
-        input[type="file"] { display: none; }
     </style>
 </head>
 <body>
 
+<div class="editor-main">
     <div class="left-bar">
-        <i class="fas fa-cog icon-btn"></i>
+        <i class="fas fa-cog icon-btn" onclick="toggleModal('settings-modal')"></i>
         <i class="fas fa-undo icon-btn"></i>
-        <i class="fas fa-redo icon-btn"></i>
-        <i class="fas fa-share-square icon-btn export-btn" title="تصدير" id="render-btn"></i>
+        <i class="fas fa-share-square icon-btn" style="color:var(--km-red)" onclick="exportVideo()"></i>
     </div>
 
-    <div class="main-editor">
-        <div class="preview-screen">
-            <video id="v-player" controls></video>
-            <div id="status-txt">جاهز..</div>
-        </div>
-        
-        <div class="timeline">
-            <div class="time-marker"></div>
-            <div class="layer"><i class="fas fa-video"></i> &nbsp; طبقة الفيديو الرئيسية</div>
-            <div class="layer" style="background: #5f4b1e; border-color: #826a2c;"><i class="fas fa-music"></i> &nbsp; صوت الخلفية</div>
-        </div>
+    <div class="preview-area">
+        <video id="main-v" controls></video>
+        <div id="text-overlay">نص توضيحي</div>
     </div>
 
-    <div class="right-controls">
+    <div class="right-control">
         <div class="km-wheel">
-            <div class="wheel-center" onclick="playVideo()"><i class="fas fa-play"></i></div>
-            <div class="w-item w-top" onclick="document.getElementById('file-up').click()"><i class="fas fa-images"></i><br>الوسائط</div>
-            <div class="w-item w-right" onclick="alert('قريباً')"><i class="fas fa-music"></i><br>صوت</div>
-            <div class="w-item w-bottom" onclick="alert('سجل')"><i class="fas fa-microphone"></i><br>REC</div>
-            <div class="w-item w-left" onclick="alert('طبقة')"><i class="fas fa-layer-group"></i><br>طبقة</div>
+            <div class="wheel-center" onclick="document.getElementById('main-v').play()"><i class="fas fa-play"></i></div>
+            <div class="w-item w-top" onclick="document.getElementById('file-in').click()"><i class="fas fa-images"></i><br>وسائط</div>
+            <div class="w-item w-right" onclick="alert('اختر موسيقى')"><i class="fas fa-music"></i><br>صوت</div>
+            <div class="w-item w-bottom" onclick="alert('بدء التسجيل')"><i class="fas fa-microphone"></i><br>REC</div>
+            <div class="w-item w-left" onclick="addText()"><i class="fas fa-layer-group"></i><br>طبقة</div>
         </div>
     </div>
+</div>
 
-    <input type="file" id="file-up" accept="video/*">
+<div class="timeline">
+    <div class="track"><i class="fas fa-video"></i> &nbsp; فيديو الأساس</div>
+    <div id="text-track" class="track" style="background:#826a2c; display:none;"><i class="fas fa-text-height"></i> &nbsp; طبقة النص</div>
+</div>
 
-    <script>
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({ log: false });
-        let videoFile;
+<div id="settings-modal" class="modal">
+    <h3>إعدادات المشروع</h3>
+    <label style="font-size:12px">اسم المشروع:</label>
+    <input type="text" value="مشروع أحمد" style="width:100%; margin-bottom:10px">
+    <button onclick="toggleModal('settings-modal')">حفظ وإغلاق</button>
+</div>
 
-        document.getElementById('file-up').onchange = (e) => {
-            videoFile = e.target.files[0];
-            if(videoFile) {
-                document.getElementById('v-player').src = URL.createObjectURL(videoFile);
-                document.getElementById('status-txt').innerText = "تم تحميل الفيديو ✅";
-            }
-        };
+<input type="file" id="file-in" hidden accept="video/*">
 
-        function playVideo() {
-            const v = document.getElementById('v-player');
-            if(v.paused) v.play(); else v.pause();
-        }
+<script>
+    // تفعيل النوافذ
+    function toggleModal(id) {
+        const m = document.getElementById(id);
+        m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+    }
 
-        document.getElementById('render-btn').onclick = async () => {
-            if(!videoFile) return alert("يرجى رفع فيديو أولاً");
-            const st = document.getElementById('status-txt');
-            st.innerText = "جاري الحفظ (تصدير)... ⏳";
-            
-            if(!ffmpeg.isLoaded()) await ffmpeg.load();
-            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-
-            // معالجة الفيديو (هنا نطبق القص التلقائي لضمان العمل)
-            await ffmpeg.run('-i', 'input.mp4', '-t', '15', 'output.mp4');
-
-            const data = ffmpeg.FS('readFile', 'output.mp4');
-            const url = URL.createObjectURL(new Blob([data.buffer], {type: 'video/mp4'}));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = "KineMaster_Export.mp4";
-            a.click();
-            st.innerText = "تم التصدير بنجاح! ✅";
-        };
-    </script>
-</body>
-</html>
+    // تفعيل إضافة نص (طبقة)
+    function addText() {
+        const txt = prompt("اكتب النص الذي تريده:");
+        if(txt) {
+            document.getElementById('text-overlay').innerText
